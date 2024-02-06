@@ -1,0 +1,106 @@
+LLM Usage
+type: Chatgpt 4.0
+modify this code so I can get the died minister's living data into the 'date' column and have 'NA' in the 'born' column ;  if the minister is still alive, record the data into the 'born' section with 'NA' in the 'date' column. # Gather
+## Acquiring the list of data of prime ministers of Australia from Wikipedia as it is a popular source, the information would likely to be correct 
+
+# download the page using read_html
+raw_data <-
+  read_html(
+    "https://en.wikipedia.org/wiki/List_of_prime_ministers_of_Australia"
+  )
+write_html(raw_data, "pms.html")
+
+raw_data <- read_html("pms.html")
+
+parse_data_selector_gadget <-
+  raw_data |>
+  html_element(".wikitable") |>
+  html_table()
+# Illustrate the first six rows of the gathered data
+head(parse_data_selector_gadget)
+
+# Data filtering only the columns we want 
+parsed_data <-
+  parse_data_selector_gadget |> 
+  clean_names() |> 
+  rename(raw_text = name_birth_death_constituency) |> 
+  select(raw_text) |> 
+  filter(raw_text != "Name(Birth–Death)Constituency") |> 
+  distinct() 
+# Illustrate the first six rows of the above data
+# head(parsed_data)
+
+# Clean the data to match what we wanted - names, birth year, death year
+#initial_clean <-
+#  parsed_data |>
+#  separate(
+#    raw_text, into = c("name", "date_info"), sep = "\\(", extra = "merge"
+#  ) |> 
+#  mutate(
+#    date = str_extract(date_info, "\\d{4}–\\d{4}"),
+#    born = str_extract(date, "^\\d{4}")
+#  ) |>
+#  select(name, date, born)
+
+#head(initial_clean) 
+ChatGPT
+To adjust the code to place deceased prime ministers' lifespans in the 'date' column and have 'NA' in the 'born' column, and vice versa for living prime ministers, you'll need to make a few changes to how you extract and separate the data. Here's the modified code that should accomplish this:
+
+r
+Copy code
+library(rvest)
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+# Read the raw data from the Wikipedia page
+raw_data <- read_html("https://en.wikipedia.org/wiki/List_of_prime_ministers_of_Australia")
+
+# Parse the HTML table into a data frame
+parse_data_selector_gadget <-
+  raw_data |>
+  html_element(".wikitable") |>
+  html_table()
+
+# Assuming the structure of the table is consistent and the relevant information is in the second column
+parsed_data <-
+  parse_data_selector_gadget[[2]] |> 
+  clean_names() |> 
+  rename(raw_text = name_birth_death_constituency) |> 
+  select(raw_text) |> 
+  filter(raw_text != "Name(Birth–Death)Constituency") |> 
+  distinct() 
+
+# Extract the name, birth and death years
+# Assuming the name is in the first column and the lifespan in the second
+initial_clean <- parsed_data |>
+  mutate(
+    name = str_extract(raw_text, "^[^(]+"), # Extract the name before the first parenthesis
+    lifespan = str_extract(raw_text, "\\(.*\\)"), # Extract the lifespan within the parenthesis
+    born = if_else(str_detect(lifespan, "–"), NA_character_, str_extract(lifespan, "\\d{4}")), # If there's a dash, set born to NA
+    date = if_else(str_detect(lifespan, "–"), str_extract(lifespan, "\\d{4}–\\d{4}"), NA_character_) # If there's no dash, set date to NA
+  ) |>
+  select(name, born, date)
+
+# View the results
+head(initial_clean)
+This code does the following:
+
+Reads the Wikipedia page and extracts the table into a dataframe.
+Filters the dataframe to exclude the header row and keeps only unique entries.
+Extracts the name and the lifespan data from the 'raw_text' column.
+Determines whether to place the year in the 'born' or 'date' column based on the presence of a dash (–) indicating a range. If there is a range, we assume the prime minister has passed away, and their lifespan goes into the 'date' column with 'NA' in the 'born' column. If there's no dash, we assume the prime minister is still alive, and their birth year goes into the 'born' column with 'NA' in the 'date' column.
+Selects and displays the relevant columns.
+Please adjust the column indices and names according to the actual structure of your data. If the Wikipedia page format changes, you will need to update the selection and extraction logic accordingly.
+
+User: I want to just add a code based on my original code provided to you that will make the spacing of vertical axis larger
+
+ChatGPT
+To adjust the spacing of the y-axis to make it larger without changing the text size, angle, or plot dimensions directly, one effective approach is to increase the plotting area's height in the output settings. This can be done by adjusting the height parameter when you output your plot, for example, when using R Markdown to knit to an HTML or PDF document, or when explicitly saving your plot using ggsave().
+
+Since you prefer not to adjust the text size, angle, or manually change the plot dimensions within the ggplot code itself, you'll need to control the output dimensions. In an R Markdown document, this can be achieved in the chunk options:
+
+markdown
+Copy code
+```{r fig.height=10}
+# Your ggplot2 code here
